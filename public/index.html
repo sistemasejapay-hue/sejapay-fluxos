@@ -207,6 +207,7 @@
 @media (max-width:900px){#v-contrato .grid{grid-template-columns:1fr}
 #v-contrato form{position:static;max-height:none}
 #v-contrato .sheet{padding:24px 18px;font-size:12.5px}}
+
 body{background:var(--bg);color:var(--ink);margin:0}
 
 /* Casca: faixa fixa com a marca e as duas abas; cada aba mostra uma página. */
@@ -224,14 +225,14 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 #v-fluxo .ph-label{top:calc(env(safe-area-inset-top,0px) + 72px)}
 #v-contrato form{top:calc(env(safe-area-inset-top,0px) + 72px);max-height:calc(100vh - 88px)}
 #v-fluxo .tpl{scroll-margin-top:80px}
-@media (max-width:600px){.abas{margin-left:0;width:100%}.abas a{flex:1;text-align:center}}
+@media (max-width:600px){.abas{margin-left:0;width:100%}.abas a{flex:1;text-align:center;padding:7px 8px;font-size:.84rem}.abas .lg{display:none}}
 @media print{.topo,body::before{display:none}#v-contrato{display:none!important}#v-fluxo{display:block!important}}
 </style>
 <style>body{margin:0}img{max-width:100%}</style>
 </head>
 <body>
 
-<header class="topo"><div class="topo-in"><span class="marca"><i></i>SejaPay · White Label</span><nav class="abas" aria-label="Seções"><a id="aba-fluxo" href="#fluxo-inicio">Fluxograma e mensagens</a><a id="aba-contrato" href="#contrato">Gerar contrato</a></nav></div></header>
+<header class="topo"><div class="topo-in"><span class="marca"><i></i>SejaPay · White Label</span><nav class="abas" aria-label="Seções"><a id="aba-fluxo" href="#fluxo-inicio">Fluxograma<span class="lg"> e mensagens</span></a><a id="aba-contrato" href="#contrato">Gerar contrato</a></nav></div></header>
 <main><div id="v-fluxo"><span id="fluxo-inicio"></span>
 
 <div class="wrap">
@@ -736,6 +737,11 @@ Se ficou alguma dúvida em alguma cláusula, me fala que eu te ajudo.</pre>
 
   <div class="grid">
     <form id="form" autocomplete="off" novalidate>
+      <fieldset id="lead-fs" hidden>
+        <legend>Lead da jornada</legend>
+        <div class="f"><label for="lead">Para qual lead é este contrato?</label><select id="lead"><option value="">Novo cliente (sem lead na jornada)</option></select></div>
+      </fieldset>
+
       <fieldset>
         <legend>Empresa do parceiro</legend>
         <div class="f"><label for="razao">Razão social <span class="req">*</span></label><input id="razao" placeholder="Ex.: Nome da Empresa Ltda"></div>
@@ -782,6 +788,7 @@ Se ficou alguma dúvida em alguma cláusula, me fala que eu te ajudo.</pre>
       <div class="status" id="status" role="status"></div>
       <div class="actions">
         <button type="button" class="primary" id="baixar">Baixar PDF</button>
+        <button type="button" class="ghost" id="onb-add" hidden>Adicionar à jornada</button>
         <button type="button" class="ghost" id="limpar">Limpar dados</button>
       </div>
       <div class="actions" id="envio" hidden>
@@ -1156,6 +1163,7 @@ function render(){
     st.innerHTML = "<b>Falta para gerar o PDF:</b><ul>" + r.erros.map(function(e){return "<li>"+esc(e)+"</li>";}).join("") + "</ul>";
   } else { st.className = "status ok"; st.innerHTML = "<b>Tudo preenchido.</b> Confira a prévia e baixe o PDF."; }
   $("baixar").disabled = r.erros.length > 0;
+  var oa = $("onb-add"); if (oa) { oa.hidden = !(window.sejaOnboarding && window.sejaOnboarding.disponivel); oa.disabled = r.erros.length > 0; }
   if (typeof atualizaEnvio === "function") atualizaEnvio();
 }
 IDS.forEach(function(k){ $(k).addEventListener("input", render); $(k).addEventListener("change", render); });
@@ -1163,8 +1171,55 @@ IDS.forEach(function(k){ $(k).addEventListener("input", render); $(k).addEventLi
 $("limpar").addEventListener("click", function(){
   ["razao","cnpj","logradouro","bairro","cep","cidade","uf","nome","cpf"].forEach(function(k){ $(k).value=""; });
   $("total").value="10.000,00"; $("entrada").value="5.000,00"; $("parcelas").value="5"; $("dia").value="10"; $("data").value=hoje();
+  if ($("lead")) $("lead").value = "";
   $("msg").textContent = "Dados limpos.";
   render();
+});
+
+/* ---------- painel de onboarding (quando a página tiver o painel) ---------- */
+function registrarOnb(f, info) {
+  if (!window.sejaOnboarding || !window.sejaOnboarding.disponivel) return;
+  info.data = $("data").value;
+  info.leadId = $("lead").value || null;
+  window.sejaOnboarding.registrar(f, info).then(function(res){
+    if (!res) return;
+    var a = document.createElement("a");
+    a.href = "#onboarding"; a.textContent = res.tipo === "novo" ? "Cliente adicionado à jornada, na etapa Contrato em assinatura →" : res.nome + " atualizado na jornada (Contrato em assinatura) →";
+    a.style.cssText = "display:block;margin-top:4px;font-weight:600;color:var(--accent)";
+    $("msg").appendChild(a);
+  }).catch(function(){
+    var s = document.createElement("span"); s.style.display = "block";
+    s.textContent = "Não foi possível atualizar a jornada do cliente. Use o botão Adicionar à jornada.";
+    $("msg").appendChild(s);
+  });
+}
+function carregarLeads(){
+  var fs = $("lead-fs"), sel = $("lead"), on = !!(window.sejaOnboarding && window.sejaOnboarding.disponivel);
+  fs.hidden = !on; if (!on) return;
+  var atual = sel.value || window.sejaOnboarding.selecionado() || "";
+  var ops = window.sejaOnboarding.opcoes();
+  sel.innerHTML = '<option value="">Novo cliente (sem lead na jornada)</option>' + ops.map(function(o){ return '<option value="' + esc(o.id) + '">' + esc(o.rotulo) + '</option>'; }).join("");
+  if (ops.some(function(o){ return o.id === atual; })) {
+    var mudou = sel.value !== atual; sel.value = atual;
+    if (mudou && window.sejaOnboarding.selecionado() === atual) preencherDoLead();
+  }
+}
+function preencherDoLead(){
+  var id = $("lead").value; if (!id || !window.sejaOnboarding) return;
+  var o = window.sejaOnboarding.opcoes().filter(function(x){ return x.id === id; })[0]; if (!o) return;
+  if (!$("razao").value && (o.razao || o.empresa)) $("razao").value = o.razao || o.empresa;
+  if (!$("nome").value && o.contato) $("nome").value = o.contato;
+  if ($("email") && !$("email").value && o.email) $("email").value = o.email;
+  if ($("whats") && !$("whats").value && o.whats) $("whats").value = o.whats;
+  render();
+}
+$("lead").addEventListener("change", preencherDoLead);
+document.addEventListener("onb-pronto", function(){ carregarLeads(); render(); });
+document.addEventListener("onb-dados", carregarLeads);
+$("onb-add").addEventListener("click", function(){
+  if (!ultimo || ultimo.erros.length) return;
+  $("msg").textContent = "";
+  registrarOnb(ultimo.f, { via: "pdf" });
 });
 
 var dlPromise = (window.claude && window.claude.use) ? window.claude.use("downloads") : Promise.resolve(null);
@@ -1178,20 +1233,26 @@ $("baixar").addEventListener("click", async function(){
   var dl = await dlPromise;
   if (!dl) {
     if (window.claude) { msg.textContent = "Este visualizador não permite baixar arquivos. Abra a página no Claude pelo navegador."; return; }
-    doc.save(nome); msg.textContent = "PDF gerado: " + nome; return;
+    doc.save(nome); msg.textContent = "PDF gerado: " + nome; registrarOnb(r.f, { via: "pdf" }); return;
   }
   try {
     await dl.save({ filename: nome, data: doc.output("blob") });
     msg.textContent = "PDF salvo: " + nome;
+    registrarOnb(r.f, { via: "pdf" });
   } catch (e) {
     var code = e && e.code;
     msg.textContent = code === "declined" ? "Download cancelado." : code === "rate_limited" ? "Já existe um download aguardando confirmação. Tente de novo em instantes." : "Não foi possível baixar aqui. Tente abrir a página no navegador.";
   }
 });
 
-/* ---------- Assinafy (só na versão do site) ---------- */
+/* ---------- Assinafy ----------
+   No site (Cloudflare ou Hostinger): envio pelo servidor (API_URL).
+   Na página do Claude: envio pelo conector "SejaPay Assinafy" (capability mcp). */
 var NO_SITE = !window.claude;
 var API_URL = "/api/assinafy";
+var MCP_SERVER = "SejaPay Assinafy";
+var modoEnvio = NO_SITE ? "site" : null;   // "site" | "mcp" | null (indisponível)
+var mcp = null;
 var assinCfg = null;
 function emailOk(e){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); }
 function whatsOk(w){ var d = digits(w); return d.length === 10 || d.length === 11; }
@@ -1199,8 +1260,8 @@ mask($("whats"), function(v){ var d=digits(v).slice(0,11); if(d.length<3) return
 
 function errosEnvio(){
   var e = [], em = $("email").value.trim(), wh = $("whats").value.trim(), c = $("canal").value;
-  if (!assinCfg) e.push("Integração com o Assinafy indisponível");
-  else if (!assinCfg.configurado) e.push("Configure a chave da API no config.php");
+  if (!assinCfg) e.push("Envio ao Assinafy indisponível");
+  else if (assinCfg.configurado === false) e.push("Falta cadastrar a chave do Assinafy no servidor");
   if (em && !emailOk(em)) e.push("E-mail do representante inválido");
   if (wh && !whatsOk(wh)) e.push("WhatsApp do representante inválido");
   if (c === "Whatsapp" && !wh) e.push("WhatsApp do representante");
@@ -1208,33 +1269,92 @@ function errosEnvio(){
   return e;
 }
 function atualizaEnvio(){
-  if (!NO_SITE) return;
+  if (!modoEnvio) return;
   var bloqueado = !ultimo || ultimo.erros.length > 0 || errosEnvio().length > 0;
   $("enviar").disabled = bloqueado;
   $("enviar").title = bloqueado ? (ultimo && ultimo.erros.length ? "Complete o contrato primeiro" : errosEnvio().join(" · ")) : "";
 }
-if (NO_SITE) {
+function mostrarConfig(c){
+  assinCfg = c;
+  if (c.configurado === false) { $("assin-info").innerHTML = "O envio ainda não está configurado. Falta cadastrar a <b>chave da API</b> e o <b>ID da conta</b> do Assinafy no servidor."; }
+  else if (c.sejapay && c.sejapay.nome) {
+    var t = (c.testemunhas || []).map(function(x){ return esc(x.nome); }).join(" e ");
+    $("assin-info").innerHTML = "Também assinam: <b>" + esc(c.sejapay.nome) + "</b> pela SejaPay" + (t ? " e as testemunhas <b>" + t + "</b>" : "") + ".";
+  } else {
+    $("assin-info").innerHTML = "Também assinam quem assina pela SejaPay e as testemunhas cadastradas no conector <b>" + esc(MCP_SERVER) + "</b>.";
+  }
+  atualizaEnvio();
+}
+function ligarEnvio(){
   $("assin").hidden = false; $("envio").hidden = false;
   ["email","whats","canal"].forEach(function(k){ $(k).addEventListener("input", atualizaEnvio); $(k).addEventListener("change", atualizaEnvio); });
   IDS.forEach(function(k){ $(k).addEventListener("input", atualizaEnvio); });
-  fetch(API_URL + (API_URL.indexOf("?")<0 ? "?" : "&") + "acao=config", { cache: "no-store" }).then(function(r){ return r.json(); }).then(function(c){
-    assinCfg = c;
-    if (!c.configurado) { $("assin-info").innerHTML = "A integração ainda não está configurada. Falta cadastrar a <b>chave da API</b> e o <b>ID da conta</b> do Assinafy no servidor."; }
-    else {
-      var t = (c.testemunhas || []).map(function(x){ return esc(x.nome); }).join(" e ");
-      $("assin-info").innerHTML = "Também assinam: <b>" + esc(c.sejapay.nome) + "</b> pela SejaPay" + (t ? " e as testemunhas <b>" + t + "</b>" : "") + ".";
-    }
-    atualizaEnvio();
-  }).catch(function(){ $("assin-info").textContent = "Não encontrei o serviço de envio ao Assinafy neste site."; atualizaEnvio(); });
   atualizaEnvio();
+}
+function blobParaBase64(blob){
+  return new Promise(function(res, rej){ var r = new FileReader(); r.onload = function(){ res(String(r.result).split(",")[1] || ""); }; r.onerror = rej; r.readAsDataURL(blob); });
+}
+function mensagemErroMcp(e){
+  var c = e && e.code;
+  if (c === "server_not_connected" || c === "server_not_found") return "o conector " + MCP_SERVER + " não está adicionado na sua conta. Adicione em Configurações → Conectores do Claude.";
+  if (c === "needs_reauth") return "reconecte o conector " + MCP_SERVER + " em Configurações → Conectores do Claude.";
+  if (c === "selection_required") return "há mais de um conector com o nome " + MCP_SERVER + ". Escolha qual usar quando o Claude perguntar.";
+  if (c === "not_in_manifest" || c === "approval_required" || c === "consent_required") return "esta página não tem permissão para usar o conector. Permita o uso quando o Claude perguntar e tente de novo.";
+  if (c === "blocked_by_policy") return "o administrador da organização bloqueou este conector.";
+  if (c === "tool_error") {
+    var sc = e.result && (e.result.structuredContent || null);
+    return (sc && sc.erro) || "o Assinafy recusou o envio.";
+  }
+  if (c === "server_unavailable" || c === "upstream_error" || c === "cancelled") return "o conector não respondeu a tempo. O contrato pode ter sido enviado: confira no Assinafy antes de tentar de novo.";
+  return "não foi possível usar o conector agora.";
+}
+async function enviarAssinafy(f, nome, blob, cliente){
+  if (modoEnvio === "site") {
+    var fd = new FormData();
+    fd.append("pdf", blob, nome);
+    fd.append("dados", JSON.stringify({ arquivo: nome, cliente: cliente }));
+    var r = await fetch(API_URL, { method: "POST", body: fd });
+    var j = await r.json().catch(function(){ return { ok:false, erro:"Resposta inválida do servidor." }; });
+    if (!j.ok) throw new Error(j.erro || "Falha no envio.");
+    return j;
+  }
+  var lt = null; try { lt = await mcp.listTools(); } catch(e) {}
+  var pdfArg = (lt && lt.fileArgs) ? { $file: { data: blob, name: nome.replace(/[^\w.\- ]/g, "_"), type: "application/pdf" } } : await blobParaBase64(blob);
+  var res;
+  try { res = await mcp.callTool(MCP_SERVER, "enviar_contrato_assinatura", { arquivo: nome, pdf_base64: pdfArg, cliente: cliente }); }
+  catch (e) { throw new Error(mensagemErroMcp(e)); }
+  var pl = res && res.payload;
+  if (!pl || pl.ok === false) throw new Error((pl && pl.erro) || "Falha no envio.");
+  return pl;
+}
 
+if (NO_SITE) {
+  ligarEnvio();
+  fetch(API_URL + (API_URL.indexOf("?")<0 ? "?" : "&") + "acao=config", { cache: "no-store" }).then(function(r){ return r.json(); }).then(mostrarConfig)
+    .catch(function(){ $("assin-info").textContent = "Não encontrei o serviço de envio ao Assinafy neste site."; atualizaEnvio(); });
+} else if (window.claude && window.claude.use) {
+  window.claude.use("mcp").then(async function(m){
+    if (!m) return;
+    mcp = m; modoEnvio = "mcp"; ligarEnvio();
+    // Só lê os signatários fixos se o conector já foi permitido (não abre pedido de permissão ao carregar)
+    var estado = "prompt";
+    try { var perm = await window.claude.use("permissions"); if (perm) estado = await perm.state("mcp:" + MCP_SERVER); } catch(e) {}
+    if (estado === "granted") {
+      try { var r = await mcp.callTool(MCP_SERVER, "configuracao_assinatura", {}); if (r && r.payload) { mostrarConfig(r.payload); return; } } catch(e) {}
+    }
+    mostrarConfig({ configurado: null });
+  }).catch(function(){});
+}
+
+if ($("enviar")) {
   $("enviar").addEventListener("click", function(){
     var e = errosEnvio();
     if (e.length) { $("msg").textContent = "Falta: " + e.join(", ") + "."; return; }
     var c = $("canal").value, f = ultimo.f;
     var dest = c === "Whatsapp" ? "WhatsApp " + $("whats").value : "e-mail " + $("email").value.trim();
     var t = (assinCfg.testemunhas || []).length;
-    $("confirma-txt").innerHTML = "Enviar o contrato de <b>" + esc(f.razao) + "</b> para assinatura? <b>" + esc(f.nome) + "</b> recebe pelo " + esc(dest) + ", junto com " + esc(assinCfg.sejapay.nome) + (t ? " e " + t + " testemunha" + (t > 1 ? "s" : "") : "") + ".";
+    var quemMais = assinCfg.sejapay && assinCfg.sejapay.nome ? esc(assinCfg.sejapay.nome) + (t ? " e " + t + " testemunha" + (t > 1 ? "s" : "") : "") : "quem assina pela SejaPay e as testemunhas";
+    $("confirma-txt").innerHTML = "Enviar o contrato de <b>" + esc(f.razao) + "</b> para assinatura? <b>" + esc(f.nome) + "</b> recebe pelo " + esc(dest) + ", junto com " + quemMais + ".";
     $("confirma").hidden = false; $("envio").hidden = true;
   });
   $("cancelar").addEventListener("click", function(){ $("confirma").hidden = true; $("envio").hidden = false; });
@@ -1245,13 +1365,10 @@ if (NO_SITE) {
     try {
       var doc = gerarPDF(window.jspdf.jsPDF, BLOCKS, f, LOGO);
       var nome = "Contrato White Label - " + f.razao.replace(/[\\/:*?"<>|]/g,"").slice(0,80) + ".pdf";
-      var fd = new FormData();
-      fd.append("pdf", doc.output("blob"), nome);
-      fd.append("dados", JSON.stringify({ arquivo: nome, cliente: { nome: f.nome, cpf: f.cpf, email: $("email").value.trim(), whatsapp: $("whats").value, canal: $("canal").value } }));
-      var r = await fetch(API_URL, { method: "POST", body: fd });
-      var j = await r.json().catch(function(){ return { ok:false, erro:"Resposta inválida do servidor." }; });
-      if (!j.ok) throw new Error(j.erro || "Falha no envio.");
-      msg.textContent = "Contrato enviado. " + j.signatarios + " signatários vão receber o pedido de assinatura do Assinafy.";
+      var cliente = { nome: f.nome, cpf: f.cpf, email: $("email").value.trim(), whatsapp: $("whats").value, canal: $("canal").value };
+      var j = await enviarAssinafy(f, nome, doc.output("blob"), cliente);
+      msg.textContent = "Contrato enviado. " + j.signatarios + " signatários vão receber o pedido de assinatura do Assinafy" + (j.nomes ? ": " + j.nomes.join(", ") : "") + ".";
+      registrarOnb(f, { via: "assinafy", email: cliente.email, whats: cliente.whatsapp });
       $("confirma").hidden = true; $("envio").hidden = false;
     } catch (err) {
       msg.textContent = "Não foi enviado: " + err.message;
@@ -1273,16 +1390,19 @@ document.querySelectorAll('.copy').forEach(function(btn){
   });
 });
 </script>
+
 <script>
 (function(){
   var vf=document.getElementById("v-fluxo"), vc=document.getElementById("v-contrato");
   var af=document.getElementById("aba-fluxo"), ac=document.getElementById("aba-contrato");
   function rota(){
-    var c = location.hash === "#contrato";
-    vf.hidden = c; vc.hidden = !c;
-    af.setAttribute("aria-current", c ? "false" : "page");
+    var vo=document.getElementById("v-onb"), ao=document.getElementById("aba-onb");
+    var h = location.hash, c = h === "#contrato", o = !!vo && h === "#onboarding", f = !c && !o;
+    vf.hidden = !f; vc.hidden = !c; if (vo) vo.hidden = !o;
+    af.setAttribute("aria-current", f ? "page" : "false");
     ac.setAttribute("aria-current", c ? "page" : "false");
-    if (c) window.scrollTo(0,0);
+    if (ao) ao.setAttribute("aria-current", o ? "page" : "false");
+    if (c || o) window.scrollTo(0,0);
   }
   window.addEventListener("hashchange", rota); rota();
 })();
