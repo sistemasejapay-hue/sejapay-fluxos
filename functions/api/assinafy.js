@@ -1,9 +1,11 @@
 // Envia o contrato gerado para assinatura no Assinafy (versão do site, usada pela página publicada na Cloudflare).
-//   GET  /api/assinafy?acao=config -> nomes dos signatários fixos (sem dados sensíveis)
-//   POST /api/assinafy             -> pdf (arquivo) + dados (JSON) -> cria o pedido de assinatura
-// A lógica do envio fica em lib/assinafy.js.
+//   GET  /api/assinafy?acao=config    -> nomes dos signatários fixos (sem dados sensíveis)
+//   GET  /api/assinafy?acao=assinados  -> contratos em que todos já assinaram (com data de assinatura)
+//   GET  /api/assinafy?acao=status     -> todos os contratos recentes com o status de assinatura
+//   POST /api/assinafy                 -> pdf (arquivo) + dados (JSON) -> cria o pedido de assinatura
+// A lógica fica em lib/assinafy.js.
 
-import { resumoConfig, enviarContrato } from "../../lib/assinafy.js";
+import { resumoConfig, enviarContrato, statusContratos } from "../../lib/assinafy.js";
 
 function responder(codigo, dados) {
   return new Response(JSON.stringify(dados), {
@@ -12,7 +14,17 @@ function responder(codigo, dados) {
   });
 }
 
-export async function onRequestGet({ env }) {
+export async function onRequestGet({ request, env }) {
+  const acao = new URL(request.url).searchParams.get("acao") || "config";
+  if (acao === "assinados" || acao === "status") {
+    try {
+      const r = await statusContratos(env, { quantidade: 100 });
+      const contratos = acao === "assinados" ? (r.contratos || []).filter((c) => c.concluido) : (r.contratos || []);
+      return responder(200, { ok: true, total: contratos.length, contratos });
+    } catch (e) {
+      return responder(502, { ok: false, erro: e.message });
+    }
+  }
   return responder(200, Object.assign({ ok: true }, resumoConfig(env)));
 }
 
