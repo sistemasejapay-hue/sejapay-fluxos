@@ -24,16 +24,29 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font
 .wrap{max-width:900px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:32px 56px}
 .eyebrow{font-family:var(--mono);font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
 h1{font-family:var(--display);font-weight:800;font-size:clamp(1.6rem,3.4vw,2.3rem);line-height:1.1;margin:0 0 6px;letter-spacing:-.01em}
-.lead{color:var(--muted);margin:0 0 20px;max-width:64ch}
+.lead{color:var(--muted);margin:0 0 18px;max-width:64ch}
+.filtros{display:flex;gap:6px;margin:0 0 18px;flex-wrap:wrap}
+.filtros button{font-family:var(--display);font-weight:700;font-size:.82rem;color:var(--muted);background:none;padding:7px 14px;border-radius:999px;border:1px solid var(--line);cursor:pointer}
+.filtros button.on{color:var(--accent-ink);background:var(--accent);border-color:var(--accent)}
 .bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
 .count{font-family:var(--mono);font-size:.8rem;color:var(--muted)}
 .btn{font-family:var(--display);font-weight:700;font-size:.85rem;color:var(--accent);background:none;border:1px solid var(--line);border-radius:8px;padding:7px 14px;cursor:pointer}
 .btn:hover{border-color:var(--accent)}
 .list{display:flex;flex-direction:column;gap:12px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+.card .top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .card .nome{font-family:var(--display);font-weight:700;font-size:1.02rem;margin:0;word-break:break-word}
-.meta{display:flex;gap:18px;flex-wrap:wrap;margin-top:8px;color:var(--muted);font-size:.9rem}
+.badge{font-family:var(--mono);font-size:.72rem;font-weight:500;padding:4px 10px;border-radius:999px;white-space:nowrap}
+.badge.ok{background:var(--ok-bg);color:var(--accent)}
+.badge.wait{background:var(--miss-bg);color:var(--miss-ink)}
+.badge.bad{background:var(--err-bg);color:var(--err)}
+.badge.save{background:var(--line);color:var(--ink)}
+.meta{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;color:var(--muted);font-size:.9rem}
 .meta b{color:var(--ink);font-weight:600}
+.sigs{margin-top:10px}
+.chip{display:inline-block;font-size:.8rem;border-radius:999px;padding:3px 10px;margin:2px 4px 2px 0}
+.chip.ok{background:var(--ok-bg);color:var(--accent)}
+.chip.wait{background:var(--miss-bg);color:var(--miss-ink)}
 .dl{display:inline-flex;align-items:center;gap:6px;margin-top:12px;font-family:var(--display);font-weight:700;font-size:.85rem;text-decoration:none;color:var(--accent-ink);background:var(--accent);border-radius:8px;padding:8px 14px;border:1px solid var(--accent)}
 .dl:hover{filter:brightness(1.06)}
 .state{background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:40px 20px;text-align:center;color:var(--muted)}
@@ -45,7 +58,14 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(1.6rem,3.4vw,2.3re
 <div class="wrap">
   <div class="eyebrow" id="eyebrow">SejaPay</div>
   <h1 id="titulo">Histórico de contratos</h1>
-  <p class="lead">Contratos gerados e <b>salvos</b> (arquivados), que ainda não foram enviados para assinatura. Baixe o PDF a qualquer momento.</p>
+  <p class="lead">Todos os contratos gerados: salvos, enviados para assinatura e concluídos. Baixe o PDF a qualquer momento.</p>
+
+  <div class="filtros" id="filtros">
+    <button data-f="todos" class="on">Todos</button>
+    <button data-f="salvos">Salvos</button>
+    <button data-f="enviados">Enviados</button>
+    <button data-f="assinados">Assinados</button>
+  </div>
 
   <div class="bar">
     <span class="count" id="count">Carregando…</span>
@@ -64,6 +84,8 @@ if (ROT[TIPO]) {
   document.title = "Histórico " + ROT[TIPO] + " — SejaPay";
 }
 var API = "/api/assinafy?acao=status" + (TIPO ? "&tipo=" + encodeURIComponent(TIPO) : "");
+var DADOS = [];
+var FILTRO = "todos";
 function el(t,c,txt){var e=document.createElement(t);if(c)e.className=c;if(txt!=null)e.textContent=txt;return e;}
 function fmtData(s){
   if(!s) return "—";
@@ -71,29 +93,53 @@ function fmtData(s){
   var p=function(n){return String(n).padStart(2,"0");};
   return p(d.getDate())+"/"+p(d.getMonth()+1)+"/"+d.getFullYear()+" "+p(d.getHours())+":"+p(d.getMinutes());
 }
-// "Salvo" = arquivado (0/0 assinaturas) e saudável (não falhou/recusou).
-function ehSalvo(c){
-  return (c.assinaturas||"") === "0/0" && !/falh|recus|cancel|expir/i.test(c.situacao||"");
+function estado(c){
+  if(/falh|recus|cancel|expir/i.test(c.situacao||"")) return "falhou";
+  if(c.concluido) return "assinados";
+  if((c.assinaturas||"")==="0/0") return "salvos";
+  return "enviados";
 }
-function render(contratos){
-  var salvos = contratos.filter(ehSalvo);
+function badge(c){
+  var e=estado(c);
+  if(e==="assinados") return {cls:"ok", txt:"✓ "+(c.situacao||"Assinado")};
+  if(e==="enviados") return {cls:"wait", txt:c.situacao||"Aguardando assinatura"};
+  if(e==="salvos") return {cls:"save", txt:"Salvo (não enviado)"};
+  return {cls:"bad", txt:c.situacao||"Falhou"};
+}
+function render(){
   var list=document.getElementById("list"); list.innerHTML="";
   var count=document.getElementById("count");
-  if(!salvos.length){
-    count.textContent="Nenhum contrato salvo ainda";
-    list.appendChild(el("div","state","Gere um contrato e clique em “Salvar no histórico” para arquivá-lo aqui."));
+  var itens = DADOS.filter(function(c){ return FILTRO==="todos" ? estado(c)!=="falhou" : estado(c)===FILTRO; });
+  if(!itens.length){
+    count.textContent="Nenhum contrato aqui";
+    list.appendChild(el("div","state","Gere um contrato e clique em “Salvar no histórico” ou “Enviar para assinatura”."));
     return;
   }
-  count.textContent=salvos.length+(salvos.length===1?" contrato salvo":" contratos salvos");
-  salvos.forEach(function(c){
+  count.textContent=itens.length+(itens.length===1?" contrato":" contratos");
+  itens.forEach(function(c){
     var card=el("div","card");
-    card.appendChild(el("p","nome",c.nome||"(sem nome)"));
-    var meta=el("div","meta");
-    var m1=el("span"); m1.innerHTML="Salvo em: <b>"+fmtData(c.criado_em)+"</b>"; meta.appendChild(m1);
+    var top=el("div","top");
+    top.appendChild(el("p","nome",c.nome||"(sem nome)"));
+    var b=badge(c); top.appendChild(el("span","badge "+b.cls, b.txt));
+    card.appendChild(top);
+    var meta=el("div","meta"), e=estado(c);
+    var dataTxt = e==="assinados" ? ("Assinado em: <b>"+fmtData(c.assinado_em||c.atualizado_em)+"</b>")
+                : e==="salvos"    ? ("Salvo em: <b>"+fmtData(c.criado_em)+"</b>")
+                :                   ("Enviado em: <b>"+fmtData(c.criado_em)+"</b>");
+    var m1=el("span"); m1.innerHTML=dataTxt; meta.appendChild(m1);
+    if(e!=="salvos"){ var m2=el("span"); m2.innerHTML="Assinaturas: <b>"+(c.assinaturas||"")+"</b>"; meta.appendChild(m2); }
     card.appendChild(meta);
+    if((c.quem_assinou&&c.quem_assinou.length)||(c.quem_falta&&c.quem_falta.length)){
+      var sigs=el("div","sigs");
+      (c.quem_assinou||[]).forEach(function(n){ sigs.appendChild(el("span","chip ok","✓ "+n)); });
+      (c.quem_falta||[]).forEach(function(n){ sigs.appendChild(el("span","chip wait","⏳ "+n)); });
+      card.appendChild(sigs);
+    }
     if(c.id){
-      var dl=el("a","dl","⬇ Baixar PDF");
-      dl.href="/api/assinafy?acao=pdf&id="+encodeURIComponent(c.id)+"&tipo=original&nome="+encodeURIComponent((c.nome||"Contrato").replace(/\.pdf$/i,""));
+      var tipoArt = c.concluido ? "certificated" : "original";
+      var rotulo = c.concluido ? "⬇ Baixar PDF assinado" : "⬇ Baixar PDF";
+      var dl=el("a","dl",rotulo);
+      dl.href="/api/assinafy?acao=pdf&id="+encodeURIComponent(c.id)+"&tipo="+tipoArt+"&nome="+encodeURIComponent((c.nome||"Contrato").replace(/\.pdf$/i,""));
       dl.setAttribute("target","_blank"); dl.setAttribute("rel","noopener");
       card.appendChild(dl);
       card.appendChild(el("div","id","ID: "+c.id));
@@ -106,12 +152,19 @@ function carregar(){
   count.textContent="Carregando…"; list.innerHTML="";
   fetch(API,{cache:"no-store"}).then(function(r){return r.json();}).then(function(j){
     if(!j.ok) throw new Error(j.erro||"Falha ao consultar.");
-    render(j.contratos||[]);
+    DADOS = j.contratos||[];
+    render();
   }).catch(function(e){
     count.textContent="";
     list.appendChild(el("div","state err","Não foi possível carregar: "+(e.message||e)+". Tente Atualizar em instantes."));
   });
 }
+document.getElementById("filtros").addEventListener("click",function(ev){
+  var b=ev.target.closest("button[data-f]"); if(!b) return;
+  FILTRO=b.getAttribute("data-f");
+  [].forEach.call(document.querySelectorAll("#filtros button"),function(x){ x.classList.toggle("on", x===b); });
+  render();
+});
 document.getElementById("recarregar").addEventListener("click",carregar);
 carregar();
 </script>
