@@ -35,8 +35,12 @@ export async function onRequestGet({ request, env }) {
   }
   if (acao === "assinados" || acao === "status") {
     try {
+      const tipo = (u.searchParams.get("tipo") || "").toLowerCase();
       const r = await statusContratos(env, { quantidade: 100 });
-      const contratos = acao === "assinados" ? (r.contratos || []).filter((c) => c.concluido) : (r.contratos || []);
+      let contratos = r.contratos || [];
+      if (acao === "assinados") contratos = contratos.filter((c) => c.concluido);
+      if (tipo === "white-label") contratos = contratos.filter((c) => /white\s*label/i.test(c.nome || ""));
+      else if (tipo === "licenciado") contratos = contratos.filter((c) => /licenciado/i.test(c.nome || ""));
       return responder(200, { ok: true, total: contratos.length, contratos });
     } catch (e) {
       return responder(502, { ok: false, erro: e.message });
