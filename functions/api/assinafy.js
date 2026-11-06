@@ -5,7 +5,7 @@
 //   POST /api/assinafy                 -> pdf (arquivo) + dados (JSON) -> cria o pedido de assinatura
 // A lógica fica em lib/assinafy.js.
 
-import { resumoConfig, enviarContrato, statusContratos } from "../../lib/assinafy.js";
+import { resumoConfig, enviarContrato, statusContratos, baixarArtefato } from "../../lib/assinafy.js";
 
 function responder(codigo, dados) {
   return new Response(JSON.stringify(dados), {
@@ -15,7 +15,24 @@ function responder(codigo, dados) {
 }
 
 export async function onRequestGet({ request, env }) {
-  const acao = new URL(request.url).searchParams.get("acao") || "config";
+  const u = new URL(request.url);
+  const acao = u.searchParams.get("acao") || "config";
+  if (acao === "pdf") {
+    try {
+      const r = await baixarArtefato(env, u.searchParams.get("id"), u.searchParams.get("tipo") || "certificated");
+      const nome = (u.searchParams.get("nome") || "Contrato assinado").replace(/[^\p{L}\p{N} \-_.]/gu, "").slice(0, 80) || "Contrato assinado";
+      return new Response(r.bytes, {
+        status: 200,
+        headers: {
+          "Content-Type": r.contentType.includes("pdf") ? r.contentType : "application/pdf",
+          "Content-Disposition": `attachment; filename="${nome}.pdf"`,
+          "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
+        },
+      });
+    } catch (e) {
+      return responder(502, { ok: false, erro: e.message });
+    }
+  }
   if (acao === "assinados" || acao === "status") {
     try {
       const r = await statusContratos(env, { quantidade: 100 });
