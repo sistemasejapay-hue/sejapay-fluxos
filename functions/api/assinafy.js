@@ -5,7 +5,7 @@
 //   POST /api/assinafy                 -> pdf (arquivo) + dados (JSON) -> cria o pedido de assinatura
 // A lógica fica em lib/assinafy.js.
 
-import { resumoConfig, enviarContrato, statusContratos, baixarArtefato } from "../../lib/assinafy.js";
+import { resumoConfig, enviarContrato, statusContratos, baixarArtefato, salvarDocumento } from "../../lib/assinafy.js";
 
 function responder(codigo, dados) {
   return new Response(JSON.stringify(dados), {
@@ -53,13 +53,24 @@ export async function onRequestPost({ request, env }) {
   // Só aceita envio vindo do próprio site
   const origem = request.headers.get("Origin");
   if (origem && new URL(origem).host !== new URL(request.url).host) return responder(403, { ok: false, erro: "Origem não autorizada." });
+  const acao = new URL(request.url).searchParams.get("acao") || "";
 
   let form;
   try { form = await request.formData(); } catch { return responder(400, { ok: false, erro: "Envio inválido." }); }
   const pdf = form.get("pdf");
   if (!pdf || typeof pdf === "string") return responder(400, { ok: false, erro: "PDF do contrato não recebido." });
   let dados;
-  try { dados = JSON.parse(form.get("dados") || ""); } catch { return responder(400, { ok: false, erro: "Dados do contrato inválidos." }); }
+  try { dados = JSON.parse(form.get("dados") || "{}"); } catch { return responder(400, { ok: false, erro: "Dados do contrato inválidos." }); }
+
+  // Salvar no histórico: arquiva o PDF no Assinafy, sem pedir assinatura.
+  if (acao === "salvar") {
+    try {
+      const r = await salvarDocumento(env, await pdf.arrayBuffer(), dados.arquivo);
+      return responder(200, { ok: true, salvo: true, documento: r.documento });
+    } catch (e) {
+      return responder(502, { ok: false, erro: e.message });
+    }
+  }
 
   try {
     const r = await enviarContrato(env, await pdf.arrayBuffer(), dados.arquivo, dados.cliente);
