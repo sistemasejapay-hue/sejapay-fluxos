@@ -29,6 +29,11 @@ body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15p
 .wrap{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:32px 56px}
 .eyebrow{font-family:var(--mono);font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
 h1{font-family:var(--display);font-weight:800;font-size:clamp(1.6rem,3.4vw,2.3rem);line-height:1.1;margin:0 0 8px;letter-spacing:-.01em;text-wrap:balance}
+.abas{display:flex;gap:6px;margin:0 0 20px;flex-wrap:wrap}
+.abas a{font-family:var(--display);font-weight:700;font-size:.9rem;text-decoration:none;color:var(--muted);padding:8px 16px;border-radius:999px;border:1px solid var(--line)}
+.abas a[aria-current="page"]{color:var(--accent-ink);background:var(--accent);border-color:var(--accent)}
+.abas a:hover{border-color:var(--accent);color:var(--accent)}
+.abas a[aria-current="page"]:hover{color:var(--accent-ink)}
 .lead{color:var(--muted);margin:0;max-width:64ch}
 .grid{display:grid;grid-template-columns:400px minmax(0,1fr);gap:28px;margin-top:24px;align-items:start}
 
@@ -103,6 +108,11 @@ button.send:disabled{opacity:.45;cursor:not-allowed}
   <div class="eyebrow">SejaPay · Gerador de contrato</div>
   <h1>Contrato White Label</h1>
   <p class="lead">Preencha os dados do parceiro e as condições negociadas. O contrato é montado ao lado e o PDF fica pronto para baixar e enviar ao cliente.</p>
+
+  <nav class="abas" aria-label="Seções">
+    <a href="/contrato/" aria-current="page">Gerar contrato</a>
+    <a href="/assinados/">Contratos assinados</a>
+  </nav>
 
   <div class="grid">
     <form id="form" autocomplete="off" novalidate>
