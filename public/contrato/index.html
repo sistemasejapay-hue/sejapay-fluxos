@@ -167,6 +167,7 @@ button.send:disabled{opacity:.45;cursor:not-allowed}
       <div class="status" id="status" role="status"></div>
       <div class="actions">
         <button type="button" class="primary" id="baixar">Baixar PDF</button>
+        <button type="button" class="ghost" id="salvar">Salvar no histórico</button>
         <button type="button" class="ghost" id="onb-add" hidden>Adicionar à jornada</button>
         <button type="button" class="ghost" id="limpar">Limpar dados</button>
       </div>
@@ -619,6 +620,29 @@ $("baixar").addEventListener("click", async function(){
     var code = e && e.code;
     msg.textContent = code === "declined" ? "Download cancelado." : code === "rate_limited" ? "Já existe um download aguardando confirmação. Tente de novo em instantes." : "Não foi possível baixar aqui. Tente abrir a página no navegador.";
   }
+});
+
+// Salvar no histórico: arquiva o PDF no Assinafy (sem pedir assinatura) -> aparece na aba Histórico da jornada.
+if ($("salvar")) $("salvar").addEventListener("click", async function(){
+  var r = ultimo; var msg = $("msg");
+  if (!r || r.erros.length) { msg.textContent = "Complete o contrato primeiro para salvar."; return; }
+  if (!window.jspdf) { msg.textContent = "Não consegui carregar o gerador de PDF. Recarregue a página."; return; }
+  var btn = $("salvar"), orig = btn.textContent;
+  btn.disabled = true; btn.textContent = "Salvando…";
+  msg.textContent = "Salvando o contrato no histórico…";
+  try {
+    var doc = gerarPDF(window.jspdf.jsPDF, BLOCKS, r.f, LOGO);
+    var nome = "Contrato White Label - " + r.f.razao.replace(/[\\/:*?"<>|]/g,"").slice(0,80) + ".pdf";
+    var fd = new FormData();
+    fd.append("pdf", doc.output("blob"), nome);
+    fd.append("dados", JSON.stringify({ arquivo: nome }));
+    var resp = await fetch(API_URL + (API_URL.indexOf("?")<0 ? "?" : "&") + "acao=salvar", { method: "POST", body: fd });
+    var j = await resp.json().catch(function(){ return { ok:false, erro:"Resposta inválida do servidor." }; });
+    if (!j.ok) throw new Error(j.erro || "Falha ao salvar.");
+    msg.textContent = "Contrato salvo no histórico. Veja na aba “Histórico de contratos” da jornada.";
+  } catch (e) {
+    msg.textContent = "Não foi salvo: " + e.message;
+  } finally { btn.disabled = false; btn.textContent = orig; }
 });
 
 /* ---------- Assinafy ----------
