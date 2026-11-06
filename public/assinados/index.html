@@ -43,6 +43,8 @@ h1{font-family:var(--display);font-weight:800;font-size:clamp(1.6rem,3.4vw,2.3re
 .meta b{color:var(--ink);font-weight:600}
 .sigs{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap}
 .chip{font-size:.8rem;background:var(--ok-bg);color:var(--accent);border-radius:999px;padding:3px 10px}
+.dl{display:inline-flex;align-items:center;gap:6px;margin-top:12px;font-family:var(--display);font-weight:700;font-size:.85rem;text-decoration:none;color:var(--accent-ink);background:var(--accent);border-radius:8px;padding:8px 14px;border:1px solid var(--accent)}
+.dl:hover{filter:brightness(1.06)}
 .state{background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:40px 20px;text-align:center;color:var(--muted)}
 .state.err{border-style:solid;border-color:var(--err);background:var(--err-bg);color:var(--err)}
 .id{font-family:var(--mono);font-size:.68rem;color:var(--muted);margin-top:8px;word-break:break-all}
@@ -100,7 +102,14 @@ function render(contratos){
       c.quem_assinou.forEach(function(n){ sigs.appendChild(el("span","chip",n)); });
       card.appendChild(sigs);
     }
-    if(c.id) card.appendChild(el("div","id","ID: "+c.id));
+    if(c.id){
+      var dl=el("a","dl","⬇ Baixar PDF assinado");
+      dl.href="/api/assinafy?acao=pdf&id="+encodeURIComponent(c.id)+"&nome="+encodeURIComponent((c.nome||"Contrato assinado").replace(/\.pdf$/i,""));
+      dl.setAttribute("target","_blank"); dl.setAttribute("rel","noopener");
+      card.appendChild(el("br"));
+      card.appendChild(dl);
+      card.appendChild(el("div","id","ID: "+c.id));
+    }
     list.appendChild(card);
   });
 }
