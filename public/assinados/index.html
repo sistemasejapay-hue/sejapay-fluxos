@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Contratos assinados — SejaPay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+:root{
+  --bg:#F3F6F6; --surface:#FFFFFF; --ink:#12302F; --muted:#5A7170; --line:#C9D6D5; --field:#FFFFFF;
+  --accent:#0C7476; --accent-ink:#FFFFFF; --ok-bg:#DDF1EE; --miss-bg:#FFF0B8; --miss-ink:#6B4A00; --err:#A33A3A; --err-bg:#FBEDEC;
+  --display:"Archivo",system-ui,sans-serif; --body:"Source Sans 3",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F1A1A; --surface:#162625; --ink:#E4EEED; --muted:#93AAA8; --line:#2C4442; --field:#0F1A1A;
+  --accent:#4FC2C0; --accent-ink:#0F1A1A; --ok-bg:#1E3B38; --miss-bg:#4A3B10; --miss-ink:#F5DC8F; --err:#F0A3A3; --err-bg:#2A1919; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F1A1A; --surface:#162625; --ink:#E4EEED; --muted:#93AAA8; --line:#2C4442; --field:#0F1A1A;
+  --accent:#4FC2C0; --accent-ink:#0F1A1A; --ok-bg:#1E3B38; --miss-bg:#4A3B10; --miss-ink:#F5DC8F; --err:#F0A3A3; --err-bg:#2A1919; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:900px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:32px 56px}
+.eyebrow{font-family:var(--mono);font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(1.6rem,3.4vw,2.3rem);line-height:1.1;margin:0 0 6px;letter-spacing:-.01em}
+.lead{color:var(--muted);margin:0 0 18px;max-width:64ch}
+.abas{display:flex;gap:6px;margin:0 0 24px;flex-wrap:wrap}
+.abas a{font-family:var(--display);font-weight:700;font-size:.9rem;text-decoration:none;color:var(--muted);padding:8px 16px;border-radius:999px;border:1px solid var(--line)}
+.abas a[aria-current="page"]{color:var(--accent-ink);background:var(--accent);border-color:var(--accent)}
+.abas a:hover{border-color:var(--accent);color:var(--accent)}
+.abas a[aria-current="page"]:hover{color:var(--accent-ink)}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.count{font-family:var(--mono);font-size:.8rem;color:var(--muted)}
+.btn{font-family:var(--display);font-weight:700;font-size:.85rem;color:var(--accent);background:none;border:1px solid var(--line);border-radius:8px;padding:7px 14px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.list{display:flex;flex-direction:column;gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+.card .top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.card .nome{font-family:var(--display);font-weight:700;font-size:1.02rem;margin:0;word-break:break-word}
+.badge{font-family:var(--mono);font-size:.72rem;font-weight:500;padding:4px 10px;border-radius:999px;background:var(--ok-bg);color:var(--accent);white-space:nowrap}
+.meta{display:flex;gap:18px;flex-wrap:wrap;margin-top:10px;color:var(--muted);font-size:.9rem}
+.meta b{color:var(--ink);font-weight:600}
+.sigs{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:.8rem;background:var(--ok-bg);color:var(--accent);border-radius:999px;padding:3px 10px}
+.state{background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:40px 20px;text-align:center;color:var(--muted)}
+.state.err{border-style:solid;border-color:var(--err);background:var(--err-bg);color:var(--err)}
+.id{font-family:var(--mono);font-size:.68rem;color:var(--muted);margin-top:8px;word-break:break-all}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">SejaPay · White Label</div>
+  <h1>Contratos assinados</h1>
+  <p class="lead">Contratos em que <b>todos os signatários já assinaram</b>. Cada um mostra a data em que a assinatura foi concluída.</p>
+
+  <nav class="abas" aria-label="Seções">
+    <a href="/contrato/">Gerar contrato</a>
+    <a href="/assinados/" aria-current="page">Contratos assinados</a>
+  </nav>
+
+  <div class="bar">
+    <span class="count" id="count">Carregando…</span>
+    <button class="btn" id="recarregar" type="button">Atualizar</button>
+  </div>
+
+  <div class="list" id="list"></div>
+</div>
+
+<script>
+var API = "/api/assinafy?acao=assinados";
+function el(t,c,txt){var e=document.createElement(t);if(c)e.className=c;if(txt!=null)e.textContent=txt;return e;}
+function fmtData(s){
+  if(!s) return "—";
+  var d=new Date(s); if(isNaN(d)) return s;
+  var p=function(n){return String(n).padStart(2,"0");};
+  return p(d.getDate())+"/"+p(d.getMonth()+1)+"/"+d.getFullYear()+" "+p(d.getHours())+":"+p(d.getMinutes());
+}
+function render(contratos){
+  var list=document.getElementById("list"); list.innerHTML="";
+  var count=document.getElementById("count");
+  if(!contratos.length){
+    count.textContent="Nenhum contrato assinado ainda";
+    var s=el("div","state","Assim que todos assinarem um contrato, ele aparece aqui automaticamente, com a data de assinatura.");
+    list.appendChild(s); return;
+  }
+  count.textContent=contratos.length+(contratos.length===1?" contrato assinado":" contratos assinados");
+  contratos.forEach(function(c){
+    var card=el("div","card");
+    var top=el("div","top");
+    top.appendChild(el("p","nome",c.nome||"(sem nome)"));
+    top.appendChild(el("span","badge","✓ Assinado"));
+    card.appendChild(top);
+    var meta=el("div","meta");
+    var m1=el("span"); m1.innerHTML="Data de assinatura: <b>"+fmtData(c.assinado_em||c.atualizado_em)+"</b>"; meta.appendChild(m1);
+    var m2=el("span"); m2.innerHTML="Assinaturas: <b>"+(c.assinaturas||"")+"</b>"; meta.appendChild(m2);
+    card.appendChild(meta);
+    if(c.quem_assinou && c.quem_assinou.length){
+      var sigs=el("div","sigs");
+      c.quem_assinou.forEach(function(n){ sigs.appendChild(el("span","chip",n)); });
+      card.appendChild(sigs);
+    }
+    if(c.id) card.appendChild(el("div","id","ID: "+c.id));
+    list.appendChild(card);
+  });
+}
+function carregar(){
+  var count=document.getElementById("count"), list=document.getElementById("list");
+  count.textContent="Carregando…"; list.innerHTML="";
+  fetch(API,{cache:"no-store"}).then(function(r){return r.json();}).then(function(j){
+    if(!j.ok) throw new Error(j.erro||"Falha ao consultar.");
+    render(j.contratos||[]);
+  }).catch(function(e){
+    count.textContent="";
+    var s=el("div","state err","Não foi possível carregar: "+(e.message||e)+". Tente Atualizar em instantes.");
+    list.appendChild(s);
+  });
+}
+document.getElementById("recarregar").addEventListener("click",carregar);
+carregar();
+</script>
+</body>
+</html>
