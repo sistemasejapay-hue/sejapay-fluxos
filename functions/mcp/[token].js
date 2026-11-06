@@ -3,7 +3,7 @@
 // O token no endereço funciona como senha: só quem tem o endereço completo consegue usar o conector.
 // Variáveis do projeto na Cloudflare: MCP_TOKEN (secreta) + as do Assinafy (ver lib/assinafy.js).
 
-import { resumoConfig, enviarContrato } from "../../lib/assinafy.js";
+import { resumoConfig, enviarContrato, statusContratos } from "../../lib/assinafy.js";
 
 const VERSOES = ["2025-06-18", "2025-03-26", "2024-11-05"];
 
@@ -39,6 +39,20 @@ const FERRAMENTAS = [
       required: ["arquivo", "pdf_base64", "cliente"],
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+  },
+  {
+    name: "status_contratos",
+    title: "Ver status dos contratos",
+    description: "Lista os contratos enviados ao Assinafy e mostra o status de cada assinatura: quem já assinou, quem ainda falta e se o contrato foi concluído (todos assinaram). Passe documento_id para ver só um contrato específico.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        quantidade: { type: "number", description: "Quantos contratos recentes listar (padrão 10, máximo 50)." },
+        documento_id: { type: "string", description: "ID de um documento específico para ver o detalhe." },
+      },
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   },
 ];
 
@@ -89,6 +103,13 @@ async function tratar(msg, env) {
           try { bytes = deBase64(args.pdf_base64); } catch { throw new Error("PDF em base64 inválido."); }
           const r = await enviarContrato(env, bytes, args.arquivo, args.cliente);
           return ok(id, resultado({ ok: true, documento: r.documento, pedido: r.pedido, signatarios: r.signatarios, nomes: r.nomes }));
+        } catch (e) {
+          return ok(id, resultado({ ok: false, erro: e.message }, true));
+        }
+      }
+      if (nome === "status_contratos") {
+        try {
+          return ok(id, resultado(await statusContratos(env, args)));
         } catch (e) {
           return ok(id, resultado({ ok: false, erro: e.message }, true));
         }
